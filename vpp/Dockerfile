@@ -2,6 +2,8 @@ FROM ubuntu:18.04
 
 ARG VERSION=21.10.1
 
+RUN echo 'vm.nr_hugepages = 1024' >> /etc/sysctl.conf
+RUN sysctl -p
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y -qq --no-install-recommends \
   curl=7.58.0-2ubuntu3.20 \
