@@ -14,31 +14,18 @@ set -o xtrace
 set -o nounset
 
 function setup_nic {
-    local nic=$1
-    local tap_nic=$2
-    local tap=$3
-    local bridge=$4
+    nic=eth0
+    ip_addr=$(ip addr show $nic | grep inet | awk '{print $2}')
 
-    ip_addr=$(ip addr show "$nic" | grep inet | awk '{print $2}')
-    hw_addr=$(ip -brief link show "$nic" | awk '{print $3;}')
-    fake_hw_addr=$(
-        echo -n 00
-        dd bs=1 count=5 if=/dev/urandom 2>/dev/null | hexdump -v -e '/1 ":%02X"'
-    )
+    vppctl create host-interface name "$nic"
+    vppctl set int state "host-$nic" up
+    vppctl set int ip address "host-$nic" "$ip_addr"
+    vppctl ip route add "$PROTECTED_NET_CIDR" via "$FW_IPADDR"
 
-    # Change MAC address of nic
-    ip link set dev "$nic" down
-    ip link set dev "$nic" address "$fake_hw_addr"
-    #ip addr flush dev "$nic"
-    ip link set dev "$nic" up
+    vppctl loop create
+    vppctl set int ip address loop0 11.22.33.1/24
+    vppctl set int state loop0 up   
 
-    vppctl tap connect "$tap_nic" hwaddr "$hw_addr"
-    vppctl set int ip address "$tap" "$ip_addr"
-    vppctl set int state "$tap" up
-    brctl addbr "$bridge"
-    brctl addif "$bridge" "$tap_nic"
-    brctl addif "$bridge" "$nic"
-    ip link set dev "$bridge" up
 }
 
 # Ensure VPP connection
@@ -55,7 +42,7 @@ done
 ip address show
 
 # Configure VPP for vPacketGenerator
-setup_nic eth0 tap111 tap-0 br0
+setup_nic 
 vppctl ip route add "$PROTECTED_NET_CIDR" via "$FW_IPADDR"
 sleep 1
 
